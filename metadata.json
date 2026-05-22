@@ -1,0 +1,6 @@
+{
+  "name": "Super Abasto Familiar",
+  "description": "Un potente sistema de gestión en tiempo real con conversión multi-moneda (USD/VES/COP), control de inventario de víveres, frutas, verduras con emojicards, faturacion de ventas e ingresos, y reportes CxC y CxP.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
