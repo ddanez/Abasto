@@ -25,8 +25,28 @@ import PurchasesModule from './components/PurchasesModule';
 import CxcCxpModule from './components/CxcCxpModule';
 import ContactsModule from './components/ContactsModule';
 import CompanyConfigModule from './components/CompanyConfigModule';
+import LoginModule from './components/LoginModule';
+
+// Let's intercept standard fetch, appending user sessions info to headers automatically!
+const originalFetch = window.fetch;
+window.fetch = function (url, options = {}) {
+  const userJson = localStorage.getItem('abasto_user');
+  const user = userJson ? JSON.parse(userJson) : null;
+  if (user && typeof url === 'string' && url.startsWith('/api')) {
+    const headers = new Headers(options.headers || {});
+    headers.set('x-user-username', user.username);
+    headers.set('x-user-name', user.name);
+    options.headers = headers;
+  }
+  return originalFetch(url, options);
+};
 
 export default function App() {
+  const [activeUser, setActiveUser] = useState<{ id: string; username: string; name: string; role: string } | null>(() => {
+    const userJson = localStorage.getItem('abasto_user');
+    return userJson ? JSON.parse(userJson) : null;
+  });
+
   const [rates, setRates] = useState<ExchangeRate>({ usdToVes: 0, usdToCop: 0, date: '' });
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -389,6 +409,17 @@ export default function App() {
     }
   };
 
+  const handleLogout = () => {
+    if (confirm('¿Desea cerrar la sesión activa actual?')) {
+      localStorage.removeItem('abasto_user');
+      setActiveUser(null);
+    }
+  };
+
+  if (!activeUser) {
+    return <LoginModule onLoginSuccess={(u) => setActiveUser(u)} companyConfig={companyConfig} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -438,16 +469,24 @@ export default function App() {
             </div>
 
             {/* Bottom Admin block */}
-            <div className="pt-4 border-t border-slate-100">
-              <div className="bg-slate-900 text-white rounded-2xl p-4 text-left">
-                <p className="text-[9px] opacity-60 mb-0.5 uppercase font-bold tracking-widest">Administrador</p>
-                <p className="text-xs font-semibold text-slate-100">Carlos Rodríguez</p>
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <div className="bg-slate-900 text-white rounded-2xl p-4 text-left font-sans">
+                <p className="text-[9px] opacity-65 mb-0.5 uppercase font-bold tracking-widest">{activeUser.role}</p>
+                <p className="text-xs font-bold text-slate-100 leading-snug">{activeUser.name}</p>
+                <p className="text-[9px] font-mono opacity-40">@{activeUser.username}</p>
                 <div className="h-px bg-white/10 my-1.5"></div>
-                <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono">
-                  <span>Base de datos</span>
-                  <span className="text-emerald-400 font-semibold">Segura 🔒</span>
+                <div className="flex items-center justify-between text-[9px] text-slate-405 font-mono">
+                  <span>Estatus</span>
+                  <span className="text-emerald-400 font-semibold">Conectado ●</span>
                 </div>
               </div>
+              <button
+                onClick={handleLogout}
+                style={{ minHeight: '32px' }}
+                className="w-full text-center py-2 border border-slate-100 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 rounded-xl text-slate-500 font-bold transition-all text-[11px] cursor-pointer"
+              >
+                Cerrar Sesión
+              </button>
             </div>
           </div>
         </div>
@@ -528,16 +567,24 @@ export default function App() {
           <nav className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-1.5 sticky top-24 flex flex-col justify-between min-h-[460px]">
             {renderNavLinks()}
 
-            <div className="pt-4 border-t border-slate-100 flex flex-col gap-3">
-              <div className="bg-slate-900 text-white rounded-2xl p-4 text-left">
-                <p className="text-[9px] opacity-60 mb-1 uppercase font-bold tracking-widest">Administrador</p>
-                <p className="text-xs font-semibold text-slate-100">Carlos Rodríguez</p>
+            <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">
+              <div className="bg-slate-900 text-white rounded-2xl p-4 text-left font-sans">
+                <p className="text-[9px] opacity-65 mb-0.5 uppercase font-bold tracking-widest">{activeUser.role}</p>
+                <p className="text-xs font-bold text-slate-100 leading-snug">{activeUser.name}</p>
+                <p className="text-[9px] font-mono opacity-40">@{activeUser.username}</p>
                 <div className="h-px bg-white/10 my-1.5"></div>
-                <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono">
-                  <span>Base de datos</span>
-                  <span className="text-emerald-400 font-semibold">Segura 🔒</span>
+                <div className="flex items-center justify-between text-[9px] text-slate-405 font-mono">
+                  <span>Estatus</span>
+                  <span className="text-emerald-400 font-semibold">Conectado ●</span>
                 </div>
               </div>
+              <button
+                onClick={handleLogout}
+                style={{ minHeight: '32px' }}
+                className="w-full text-center py-2 border border-slate-100 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 rounded-xl text-slate-500 font-bold transition-all text-[11px] cursor-pointer"
+              >
+                Cerrar Sesión
+              </button>
             </div>
 
           </nav>

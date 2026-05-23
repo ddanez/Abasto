@@ -132,6 +132,24 @@ export interface FinancialStats {
   projectedProfitUsd: number;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  dateRegistered: string;
+}
+
+export interface AuditLog {
+  id: string;
+  username: string;
+  name: string;
+  action: string;
+  module: string;
+  date: string;
+  details?: string;
+}
+
 export interface CompanyConfig {
   name: string;
   emoji: string;

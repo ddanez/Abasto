@@ -144,6 +144,7 @@ function readDb() {
   try {
     const content = fs.readFileSync(DB_FILE, 'utf-8');
     const db = JSON.parse(content);
+    let changed = false;
     if (!db.companyConfig) {
       db.companyConfig = {
         name: 'Súper Abasto Familiar',
@@ -153,6 +154,36 @@ function readDb() {
         address: 'Av. Principal, Sector Centro, Caracas',
         footerText: '¡Gracias por preferirnos! Guarde su comprobante.'
       };
+      changed = true;
+    }
+    if (!db.users || !Array.isArray(db.users) || db.users.length === 0) {
+      db.users = [
+        {
+          id: 'usr_admin',
+          username: 'admin',
+          name: 'Carlos Rodríguez',
+          password: 'admin',
+          role: 'Administrador',
+          dateRegistered: new Date().toISOString()
+        }
+      ];
+      changed = true;
+    }
+    if (!db.logs || !Array.isArray(db.logs)) {
+      db.logs = [
+        {
+          id: 'log_init',
+          username: 'system',
+          name: 'Sistema Autónomo',
+          action: 'Bitácora de seguridad y auditoría activada correctamente',
+          module: 'auth',
+          date: new Date().toISOString(),
+          details: 'Sistema de control local FJPM Iniciado'
+        }
+      ];
+      changed = true;
+    }
+    if (changed) {
       writeDb(db);
     }
     return db;
@@ -174,8 +205,40 @@ function readDb() {
       sales: [],
       purchases: [],
       cxc: [],
-      cxp: []
+      cxp: [],
+      users: [
+        {
+          id: 'usr_admin',
+          username: 'admin',
+          name: 'Carlos Rodríguez',
+          password: 'admin',
+          role: 'Administrador',
+          dateRegistered: new Date().toISOString()
+        }
+      ],
+      logs: []
     };
+  }
+}
+
+function logAction(req: any, action: string, module: string, details: string = '') {
+  try {
+    const username = req.headers['x-user-username'] || 'system';
+    const name = req.headers['x-user-name'] || 'Sistema';
+    const db = readDb();
+    if (!db.logs) db.logs = [];
+    db.logs.push({
+      id: 'log_' + Math.random().toString(36).substr(2, 9),
+      username: String(username),
+      name: String(name),
+      action,
+      module,
+      date: new Date().toISOString(),
+      details
+    });
+    writeDb(db);
+  } catch (err) {
+    console.error("Error writing audit log:", err);
   }
 }
 
@@ -214,6 +277,7 @@ app.put('/api/config', (req, res) => {
   };
   
   writeDb(db);
+  logAction(req, `Modificó datos de la empresa`, 'config', `Nuevo Nombre: ${db.companyConfig.name}`);
   res.json(db.companyConfig);
 });
 
@@ -239,6 +303,7 @@ app.post('/api/rates', (req, res) => {
   };
 
   writeDb(db);
+  logAction(req, `Actualizó cotización: VES Bs.${db.rates.usdToVes} / COP $${db.rates.usdToCop.toLocaleString()}`, 'rates');
   res.json({ message: 'Cotización actualizada', rates: db.rates });
 });
 
@@ -264,6 +329,7 @@ app.post('/api/products', (req, res) => {
 
   db.products.push(newProduct);
   writeDb(db);
+  logAction(req, `Añadió un producto: ${newProduct.emoji} ${newProduct.name}`, 'inventory', `Precio: $${newProduct.priceUsd}, Cantidad inicial: ${newProduct.stock} ${newProduct.unit}`);
   res.status(201).json(newProduct);
 });
 
@@ -454,6 +520,7 @@ app.post('/api/sales', (req, res) => {
   }
 
   writeDb(db);
+  logAction(req, `Registró venta: ${newSale.invoiceNumber}`, 'sales', `Monto: $${newSale.totalUsd}, Cliente: ${newSale.customerName}, Pago: ${newSale.paymentMethod}`);
   res.status(201).json(newSale);
 });
 
@@ -815,6 +882,140 @@ app.post('/api/cxp/:id/payments', (req, res) => {
 
   writeDb(db);
   res.json(cxp);
+});
+
+// --- USER AUTHENTICATION & AUDIT LOGS ENDPOINTS ---
+
+// Login user
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+  }
+
+  const db = readDb();
+  const user = db.users.find(
+    (u: any) => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+  );
+
+  if (!user) {
+    // Record log for failed access
+    db.logs.push({
+      id: 'log_' + Math.random().toString(36).substr(2, 9),
+      username: username,
+      name: 'Intento de Acceso',
+      action: `Intento fallido de inicio de sesión para el usuario '${username}'`,
+      module: 'auth',
+      date: new Date().toISOString(),
+      details: 'Clave incorrecta o usuario inexistente'
+    });
+    writeDb(db);
+    return res.status(401).json({ error: 'Credenciales inválidas. Verifique e intente nuevamente o cree una cuenta.' });
+  }
+
+  const userRes = {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: user.role,
+    dateRegistered: user.dateRegistered
+  };
+
+  logAction(req, `Sesión iniciada: ${user.name} (${user.username})`, 'auth', `Rol: ${user.role}`);
+  res.json({ success: true, user: userRes });
+});
+
+// Register user
+app.post('/api/auth/register', (req, res) => {
+  const { username, password, name, role } = req.body;
+  if (!username || !password || !name || !role) {
+    return res.status(400).json({ error: 'Todos los campos son requeridos (usuario, clave, nombre, rol)' });
+  }
+
+  const db = readDb();
+  const exists = db.users.some((u: any) => u.username.toLowerCase() === username.toLowerCase());
+  if (exists) {
+    return res.status(400).json({ error: 'El nombre de usuario ya está registrado' });
+  }
+
+  const newUser = {
+    id: 'usr_' + Math.random().toString(36).substr(2, 9),
+    username: username.toLowerCase().trim(),
+    name: name.trim(),
+    password,
+    role,
+    dateRegistered: new Date().toISOString()
+  };
+
+  db.users.push(newUser);
+  writeDb(db);
+
+  logAction(req, `Registró nuevo usuario: ${newUser.name} (${newUser.username})`, 'auth', `Asignó rol: ${newUser.role}`);
+  
+  const userRes = {
+    id: newUser.id,
+    username: newUser.username,
+    name: newUser.name,
+    role: newUser.role,
+    dateRegistered: newUser.dateRegistered
+  };
+
+  res.status(201).json({ success: true, user: userRes });
+});
+
+// Get users list
+app.get('/api/users', (req, res) => {
+  const db = readDb();
+  // Safe mapping, do not expose password
+  const users = db.users.map((u: any) => ({
+    id: u.id,
+    username: u.username,
+    name: u.name,
+    role: u.role,
+    dateRegistered: u.dateRegistered
+  }));
+  res.json(users);
+});
+
+// Delete user
+app.delete('/api/users/:username', (req, res) => {
+  const { username } = req.params;
+  const db = readDb();
+  
+  if (username.toLowerCase() === 'admin') {
+    return res.status(400).json({ error: 'No está permitido eliminar la cuenta raíz de administrador (admin).' });
+  }
+
+  const idx = db.users.findIndex((u: any) => u.username.toLowerCase() === username.toLowerCase());
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Usuario no encontrado' });
+  }
+
+  const deletedUser = db.users[idx];
+  db.users.splice(idx, 1);
+  writeDb(db);
+
+  logAction(req, `Eliminó cuenta de usuario: ${deletedUser.name} (${deletedUser.username})`, 'auth', `Rol eliminado: ${deletedUser.role}`);
+  res.json({ success: true, message: 'Usuario eliminado correctamente' });
+});
+
+// Get audit logs
+app.get('/api/logs', (req, res) => {
+  const db = readDb();
+  const logsList = db.logs || [];
+  // Send sorted newest first
+  const sortedLogs = [...logsList].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  res.json(sortedLogs);
+});
+
+// Write custom log (e.g. error reporting or diagnostic status)
+app.post('/api/logs', (req, res) => {
+  const { action, module, details } = req.body;
+  if (!action || !module) {
+    return res.status(400).json({ error: 'Acción y módulo son requeridos para la bitácora.' });
+  }
+  logAction(req, action, module, details || '');
+  res.json({ success: true });
 });
 
 // Get Database Reset endpoint for safety/cleaning
