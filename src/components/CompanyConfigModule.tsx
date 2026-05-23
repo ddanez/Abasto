@@ -20,6 +20,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { CompanyConfig, User, AuditLog } from '../types';
+import { apiFetch as fetch } from '../api';
 
 interface CompanyConfigModuleProps {
   config: CompanyConfig;

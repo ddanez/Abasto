@@ -26,20 +26,7 @@ import CxcCxpModule from './components/CxcCxpModule';
 import ContactsModule from './components/ContactsModule';
 import CompanyConfigModule from './components/CompanyConfigModule';
 import LoginModule from './components/LoginModule';
-
-// Let's intercept standard fetch, appending user sessions info to headers automatically!
-const originalFetch = window.fetch;
-window.fetch = function (url, options = {}) {
-  const userJson = localStorage.getItem('abasto_user');
-  const user = userJson ? JSON.parse(userJson) : null;
-  if (user && typeof url === 'string' && url.startsWith('/api')) {
-    const headers = new Headers(options.headers || {});
-    headers.set('x-user-username', user.username);
-    headers.set('x-user-name', user.name);
-    options.headers = headers;
-  }
-  return originalFetch(url, options);
-};
+import { apiFetch as fetch } from './api';
 
 export default function App() {
   const [activeUser, setActiveUser] = useState<{ id: string; username: string; name: string; role: string } | null>(() => {

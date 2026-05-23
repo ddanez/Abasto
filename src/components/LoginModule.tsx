@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, User, Lock, UserCheck, AlertTriangle, HelpCircle } from 'lucide-react';
+import { apiFetch as fetch } from '../api';
 
 interface LoginModuleProps {
   onLoginSuccess: (user: { id: string; username: string; name: string; role: string }) => void;
