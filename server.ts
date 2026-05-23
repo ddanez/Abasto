@@ -518,6 +518,216 @@ app.post('/api/purchases', (req, res) => {
   res.status(201).json(newPurchase);
 });
 
+// Edit a Sale
+app.put('/api/sales/:id', (req, res) => {
+  const { id } = req.params;
+  const { customerId, customerName, items, paymentMethod, paidAmountUsd, date } = req.body;
+  if (!items || items.length === 0) return res.status(400).json({ error: 'Debe agregar al menos un producto' });
+
+  const db = readDb();
+  const saleIdx = db.sales.findIndex((s: any) => s.id === id);
+  if (saleIdx === -1) return res.status(404).json({ error: 'Venta no encontrada' });
+
+  const oldSale = db.sales[saleIdx];
+
+  // 1. Rollback stock of old items
+  for (const oldItem of oldSale.items) {
+    const pIdx = db.products.findIndex((p: any) => p.id === oldItem.productId);
+    if (pIdx !== -1) {
+      db.products[pIdx].stock += oldItem.quantity;
+    }
+  }
+
+  // 2. Validate stock for new items
+  for (const newItem of items) {
+    const prod = db.products.find((p: any) => p.id === newItem.productId);
+    if (!prod) {
+      // Revert rollback
+      for (const oldItem of oldSale.items) {
+        const pIdx = db.products.findIndex((p: any) => p.id === oldItem.productId);
+        if (pIdx !== -1) db.products[pIdx].stock -= oldItem.quantity;
+      }
+      return res.status(400).json({ error: `Producto con ID ${newItem.productId} no existe` });
+    }
+    if (prod.stock < newItem.quantity) {
+      // Revert rollback
+      for (const oldItem of oldSale.items) {
+        const pIdx = db.products.findIndex((p: any) => p.id === oldItem.productId);
+        if (pIdx !== -1) db.products[pIdx].stock -= oldItem.quantity;
+      }
+      return res.status(400).json({ error: `Stock insuficiente para ${prod.name}. Disponible tras reversión: ${prod.stock} ${prod.unit}` });
+    }
+  }
+
+  // 3. Deduct new stock
+  for (const newItem of items) {
+    const pIdx = db.products.findIndex((p: any) => p.id === newItem.productId);
+    if (pIdx !== -1) {
+      db.products[pIdx].stock -= newItem.quantity;
+    }
+  }
+
+  // 4. Compute totals
+  let computedTotalUsd = 0;
+  for (const newItem of items) {
+    computedTotalUsd += newItem.priceUsd * newItem.quantity;
+  }
+
+  const cxcBalance = paymentMethod === 'cxc' ? (computedTotalUsd - (Number(paidAmountUsd) || 0)) : 0;
+
+  // 5. Update sale properties
+  oldSale.customerId = customerId || 'casual';
+  oldSale.customerName = customerName || 'Cliente Casual';
+  oldSale.items = items;
+  oldSale.totalUsd = Number(computedTotalUsd.toFixed(2));
+  oldSale.paymentMethod = paymentMethod;
+  oldSale.paidAmountUsd = paymentMethod === 'cxc' ? (Number(paidAmountUsd) || 0) : Number(computedTotalUsd.toFixed(2));
+  oldSale.cxcBalanceUsd = Number(cxcBalance.toFixed(2));
+  if (date) oldSale.date = date;
+
+  // Update CxC records: remove old one and create new one if needed
+  db.cxc = db.cxc.filter((c: any) => c.saleId !== id);
+  if (cxcBalance > 0) {
+    db.cxc.push({
+      id: 'cxc_' + Math.random().toString(36).substr(2, 9),
+      saleId: id,
+      customerId: oldSale.customerId,
+      customerName: oldSale.customerName,
+      totalAmountUsd: oldSale.totalUsd,
+      remainingBalanceUsd: oldSale.cxcBalanceUsd,
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      status: 'pendiente',
+      payments: oldSale.paidAmountUsd > 0 ? [{ id: 'cxpay_init', date: new Date().toISOString(), amountUsd: oldSale.paidAmountUsd, paymentMethod: 'cash' }] : [],
+      date: oldSale.date
+    });
+  }
+
+  writeDb(db);
+  res.json(oldSale);
+});
+
+// Delete a Sale
+app.delete('/api/sales/:id', (req, res) => {
+  const { id } = req.params;
+  const db = readDb();
+  const saleIdx = db.sales.findIndex((s: any) => s.id === id);
+  if (saleIdx === -1) return res.status(404).json({ error: 'Venta no encontrada' });
+
+  const oldSale = db.sales[saleIdx];
+
+  // Rollback stock
+  for (const item of oldSale.items) {
+    const pIdx = db.products.findIndex((p: any) => p.id === item.productId);
+    if (pIdx !== -1) {
+      db.products[pIdx].stock += item.quantity;
+    }
+  }
+
+  // Remove CxC
+  db.cxc = db.cxc.filter((c: any) => c.saleId !== id);
+
+  // Remove Sale
+  db.sales.splice(saleIdx, 1);
+
+  writeDb(db);
+  res.json({ success: true, message: 'Venta eliminada e inventario restablecido.' });
+});
+
+// Edit a Purchase
+app.put('/api/purchases/:id', (req, res) => {
+  const { id } = req.params;
+  const { providerId, providerName, items, paymentMethod, paidAmountUsd, date } = req.body;
+  if (!items || items.length === 0) return res.status(400).json({ error: 'Debe agregar productos a la compra' });
+
+  const db = readDb();
+  const purIdx = db.purchases.findIndex((p: any) => p.id === id);
+  if (purIdx === -1) return res.status(404).json({ error: 'Compra no encontrada' });
+
+  const oldPurchase = db.purchases[purIdx];
+
+  // 1. Rollback old stock (subtract what was bought)
+  for (const oldItem of oldPurchase.items) {
+    const pIdx = db.products.findIndex((p: any) => p.id === oldItem.productId);
+    if (pIdx !== -1) {
+      db.products[pIdx].stock -= oldItem.quantity;
+    }
+  }
+
+  // 2. Add new quantities and update costs
+  for (const newItem of items) {
+    const pIdx = db.products.findIndex((p: any) => p.id === newItem.productId);
+    if (pIdx !== -1) {
+      db.products[pIdx].stock += newItem.quantity;
+      db.products[pIdx].costUsd = newItem.costUsd;
+    }
+  }
+
+  // 3. Compute totals
+  let computedTotalUsd = 0;
+  for (const newItem of items) {
+    computedTotalUsd += newItem.costUsd * newItem.quantity;
+  }
+
+  const cxpBalance = paymentMethod === 'cxp' ? (computedTotalUsd - (Number(paidAmountUsd) || 0)) : 0;
+
+  // 4. Update purchase
+  oldPurchase.providerId = providerId;
+  oldPurchase.providerName = providerName;
+  oldPurchase.items = items;
+  oldPurchase.totalUsd = Number(computedTotalUsd.toFixed(2));
+  oldPurchase.paymentMethod = paymentMethod;
+  oldPurchase.paidAmountUsd = paymentMethod === 'cxp' ? (Number(paidAmountUsd) || 0) : Number(computedTotalUsd.toFixed(2));
+  oldPurchase.cxpBalanceUsd = Number(cxpBalance.toFixed(2));
+  if (date) oldPurchase.date = date;
+
+  // Update CxP records
+  db.cxp = db.cxp.filter((c: any) => c.purchaseId !== id);
+  if (cxpBalance > 0) {
+    db.cxp.push({
+      id: 'cxp_' + Math.random().toString(36).substr(2, 9),
+      purchaseId: id,
+      providerId: oldPurchase.providerId,
+      providerName: oldPurchase.providerName,
+      totalAmountUsd: oldPurchase.totalUsd,
+      remainingBalanceUsd: oldPurchase.cxpBalanceUsd,
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      status: 'pendiente',
+      payments: oldPurchase.paidAmountUsd > 0 ? [{ id: 'cxppay_init', date: new Date().toISOString(), amountUsd: oldPurchase.paidAmountUsd, paymentMethod: 'cash' }] : [],
+      date: oldPurchase.date
+    });
+  }
+
+  writeDb(db);
+  res.json(oldPurchase);
+});
+
+// Delete a Purchase
+app.delete('/api/purchases/:id', (req, res) => {
+  const { id } = req.params;
+  const db = readDb();
+  const purIdx = db.purchases.findIndex((p: any) => p.id === id);
+  if (purIdx === -1) return res.status(404).json({ error: 'Compra no encontrada' });
+
+  const oldPurchase = db.purchases[purIdx];
+
+  // Rollback stock (purchased items subtracted from stock)
+  for (const item of oldPurchase.items) {
+    const pIdx = db.products.findIndex((p: any) => p.id === item.productId);
+    if (pIdx !== -1) {
+      db.products[pIdx].stock -= item.quantity;
+    }
+  }
+
+  // Remove CxP
+  db.cxp = db.cxp.filter((c: any) => c.purchaseId !== id);
+
+  // Remove Purchase
+  db.purchases.splice(purIdx, 1);
+
+  writeDb(db);
+  res.json({ success: true, message: 'Compra eliminada e inventario descontado.' });
+});
+
 // CxC (Cuentas por Cobrar) Payment
 app.post('/api/cxc/:id/payments', (req, res) => {
   const { id } = req.params;

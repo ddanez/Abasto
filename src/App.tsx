@@ -299,6 +299,54 @@ export default function App() {
     return savedPurchase;
   };
 
+  const handleEditSale = async (id: string, saleData: any) => {
+    const res = await fetch(`/api/sales/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(saleData)
+    });
+    if (!res.ok) {
+      const errRes = await res.json();
+      throw new Error(errRes.error || 'Error al actualizar la venta');
+    }
+    await fetchDb();
+  };
+
+  const handleDeleteSale = async (id: string) => {
+    const res = await fetch(`/api/sales/${id}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const errRes = await res.json();
+      throw new Error(errRes.error || 'Error al eliminar la venta');
+    }
+    await fetchDb();
+  };
+
+  const handleEditPurchase = async (id: string, purchaseData: any) => {
+    const res = await fetch(`/api/purchases/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(purchaseData)
+    });
+    if (!res.ok) {
+      const errRes = await res.json();
+      throw new Error(errRes.error || 'Error al actualizar la compra');
+    }
+    await fetchDb();
+  };
+
+  const handleDeletePurchase = async (id: string) => {
+    const res = await fetch(`/api/purchases/${id}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const errRes = await res.json();
+      throw new Error(errRes.error || 'Error al eliminar la compra');
+    }
+    await fetchDb();
+  };
+
   // Debt Payments Action (CxC/CxP)
   const handlePayCxc = async (id: string, amountUsd: number, method: 'cash' | 'transfer', reference?: string) => {
     const res = await fetch(`/api/cxc/${id}/payments`, {
@@ -521,6 +569,9 @@ export default function App() {
               rates={rates}
               onRecordSale={handleRecordSale}
               onAddCustomer={handleAddCustomer}
+              sales={sales}
+              onEditSale={handleEditSale}
+              onDeleteSale={handleDeleteSale}
             />
           )}
 
@@ -531,6 +582,9 @@ export default function App() {
               rates={rates}
               onRecordPurchase={handleRecordPurchase}
               onAddProvider={handleAddProvider}
+              purchases={purchases}
+              onEditPurchase={handleEditPurchase}
+              onDeletePurchase={handleDeletePurchase}
             />
           )}
 
