@@ -555,7 +555,7 @@ export default function SalesModule({
                         {successReceipt.items.map((item, i) => (
                           <div key={i} className="flex justify-between text-xs font-sans">
                             <span className="text-slate-600 font-medium">{item.emoji} {item.name} x {item.quantity} {item.unit}</span>
-                            <span className="text-slate-800 font-bold font-sans">${item.totalUsd.toFixed(2)} USD</span>
+                            <span className="text-slate-800 font-bold font-sans">${(item.totalUsd !== undefined && item.totalUsd !== null ? item.totalUsd : (item.quantity * item.priceUsd)).toFixed(2)} USD</span>
                           </div>
                         ))}
                       </div>

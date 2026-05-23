@@ -415,12 +415,17 @@ app.post('/api/sales', (req, res) => {
     cxcBalance = computedTotalUsd - (Number(paidAmountUsd) || 0);
   }
 
+  const itemsWithTotals = items.map((item: any) => ({
+    ...item,
+    totalUsd: Number((item.quantity * item.priceUsd).toFixed(2))
+  }));
+
   const newSale = {
     id: saleId,
     invoiceNumber: invoiceNum,
     customerId: customerId || 'casual',
     customerName: customerName || 'Cliente Casual',
-    items,
+    items: itemsWithTotals,
     totalUsd: Number(computedTotalUsd.toFixed(2)),
     paymentMethod,
     paidAmountUsd: paymentMethod === 'cxc' ? (Number(paidAmountUsd) || 0) : Number(computedTotalUsd.toFixed(2)),
@@ -578,7 +583,10 @@ app.put('/api/sales/:id', (req, res) => {
   // 5. Update sale properties
   oldSale.customerId = customerId || 'casual';
   oldSale.customerName = customerName || 'Cliente Casual';
-  oldSale.items = items;
+  oldSale.items = items.map((i: any) => ({
+    ...i,
+    totalUsd: Number((i.quantity * i.priceUsd).toFixed(2))
+  }));
   oldSale.totalUsd = Number(computedTotalUsd.toFixed(2));
   oldSale.paymentMethod = paymentMethod;
   oldSale.paidAmountUsd = paymentMethod === 'cxc' ? (Number(paidAmountUsd) || 0) : Number(computedTotalUsd.toFixed(2));
