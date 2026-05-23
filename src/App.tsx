@@ -11,7 +11,9 @@ import {
   Coins,
   Receipt,
   RotateCcw,
-  Sliders
+  Sliders,
+  Menu,
+  X
 } from 'lucide-react';
 
 import { Product, Customer, Provider, Sale, Purchase, CxcInvoice, CxpInvoice, ExchangeRate, CompanyConfig } from './types';
@@ -37,6 +39,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'inventory' | 'sales' | 'purchases' | 'cxccxp' | 'contacts' | 'config'>('dashboard');
   const [loading, setLoading] = useState(true);
   const [showConfigRateModal, setShowConfigRateModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [companyConfig, setCompanyConfig] = useState<CompanyConfig>({
     name: 'Súper Abasto Familiar',
     emoji: '🥦',
@@ -45,6 +48,45 @@ export default function App() {
     address: 'Av. Principal, Sector Centro, Caracas',
     footerText: '¡Gracias por preferirnos! Guarde su comprobante.'
   });
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Panel Principal', icon: LayoutDashboard },
+    { id: 'inventory', label: 'Inventario', icon: Package },
+    { id: 'sales', label: 'Caja / Ventas', icon: ShoppingCart },
+    { id: 'purchases', label: 'Compras / Stock', icon: Truck },
+    { id: 'cxccxp', label: 'Deudas (CxC/CxP)', icon: CreditCard },
+    { id: 'contacts', label: 'Clientes y Proveedores', icon: Contact2 },
+    { id: 'config', label: 'Configuración Empresa', icon: Sliders },
+  ] as const;
+
+  const renderNavLinks = (onItemClick?: () => void) => {
+    return (
+      <div className="space-y-1.5 animate-fade-in">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id);
+                if (onItemClick) onItemClick();
+              }}
+              style={{ minHeight: '44px' }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${
+                isActive 
+                  ? 'bg-green-50 text-green-700 font-semibold' 
+                  : 'text-slate-500 hover:bg-slate-50 font-medium'
+              }`}
+            >
+              <Icon size={14} className={isActive ? 'text-green-600' : 'text-slate-400'} />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   // Fetch complete database state
   const fetchDb = async () => {
@@ -309,40 +351,95 @@ export default function App() {
         <CurrencyModal onRatesSubmit={handleRatesSubmit} currentRates={rates} />
       )}
 
+      {/* MOBILE COLLAPSIBLE DRAWER */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop with transition */}
+          <div 
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+          />
+          {/* Sliding menu panel */}
+          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white shadow-2xl flex flex-col justify-between p-6 z-55 animate-slide-right">
+            <div>
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{companyConfig.emoji}</span>
+                  <span className="font-extrabold text-xs text-slate-805 tracking-tight uppercase">{companyConfig.name}</span>
+                </div>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2 -mr-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  title="Cerrar menú"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Navigation links */}
+              {renderNavLinks(() => setMobileMenuOpen(false))}
+            </div>
+
+            {/* Bottom Admin block */}
+            <div className="pt-4 border-t border-slate-100">
+              <div className="bg-slate-900 text-white rounded-2xl p-4 text-left">
+                <p className="text-[9px] opacity-60 mb-0.5 uppercase font-bold tracking-widest">Administrador</p>
+                <p className="text-xs font-semibold text-slate-100">Carlos Rodríguez</p>
+                <div className="h-px bg-white/10 my-1.5"></div>
+                <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono">
+                  <span>Base de datos</span>
+                  <span className="text-emerald-400 font-semibold">Segura 🔒</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* HEADER BAR */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 h-16 flex items-center shadow-sm">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
           
-          {/* Brand/Store description */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('config')} title="Ir a Configuración">
-            <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-xl shadow-lg shadow-green-200">
-              {companyConfig.emoji}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-tight text-slate-800 uppercase">{companyConfig.name}</h1>
+          {/* Mobile hamburger button & Brand/Store info */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-all cursor-pointer"
+              title="Abrir menú"
+              style={{ minHeight: '44px', minWidth: '44px' }}
+            >
+              <Menu size={20} />
+            </button>
+
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActiveTab('config')} title="Ir a Configuración">
+              <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-xl shadow-lg shadow-green-100 shrink-0">
+                {companyConfig.emoji}
               </div>
-              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Gestión Integrada • Víveres, Frutas y Verduras</p>
+              <div>
+                <h1 className="text-xs sm:text-sm font-bold tracking-tight text-slate-850 uppercase leading-none">{companyConfig.name}</h1>
+                <p className="hidden md:block text-[9px] uppercase font-bold text-slate-400 tracking-wider mt-1.5 font-sans">Gestión Integrada • Víveres y Abasto</p>
+              </div>
             </div>
           </div>
 
           {/* Real-time details rates indicator */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {rates.usdToVes > 0 && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-3">
                 {/* VES Rate indicator */}
-                <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100">
-                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-tighter">USD-VES</span>
-                  <span className="text-xs font-mono font-bold text-slate-750">Bs.{rates.usdToVes.toFixed(2)}</span>
+                <div className="flex items-center gap-1.5 bg-amber-50 px-2 sm:px-3 py-1.5 rounded-lg border border-amber-100">
+                  <span className="text-[8px] sm:text-[10px] font-bold text-amber-700 uppercase tracking-tighter">VES</span>
+                  <span className="text-[10px] sm:text-xs font-mono font-bold text-slate-750">Bs.{rates.usdToVes.toFixed(2)}</span>
                 </div>
                 {/* COP Rate indicator */}
-                <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                  <span className="text-[10px] font-bold text-blue-700 uppercase tracking-tighter">USD-COP</span>
-                  <span className="text-xs font-mono font-bold text-slate-755">${rates.usdToCop.toLocaleString('es-CO')}</span>
+                <div className="flex items-center gap-1.5 bg-blue-50 px-2 sm:px-3 py-1.5 rounded-lg border border-blue-100">
+                  <span className="text-[8px] sm:text-[10px] font-bold text-blue-700 uppercase tracking-tighter">COP</span>
+                  <span className="text-[10px] sm:text-xs font-mono font-bold text-slate-755">${rates.usdToCop.toLocaleString('es-CO')}</span>
                 </div>
                 <button
                   onClick={() => setShowConfigRateModal(true)}
-                  className="text-[10px] text-green-600 font-bold underline hover:text-green-700 transition cursor-pointer"
+                  className="text-[9px] sm:text-[10px] text-green-600 font-bold underline hover:text-green-700 transition cursor-pointer"
                   title="Cambiar cotización actual"
                 >
                   (Ajustar)
@@ -354,9 +451,10 @@ export default function App() {
               onClick={handleFactoryReset}
               className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-all border border-slate-200 text-xs flex items-center gap-1 cursor-pointer"
               title="Restaurar base de datos"
+              style={{ minHeight: '32px' }}
             >
               <RotateCcw size={12} />
-              <span className="text-[10px] font-semibold">Caja</span>
+              <span className="text-[10px] font-semibold hidden sm:inline">Caja</span>
             </button>
           </div>
         </div>
@@ -365,66 +463,10 @@ export default function App() {
       {/* VIEWPORT LAYOUT WRAPPER */}
       <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col lg:flex-row gap-6 bg-slate-50/50">
         
-        {/* SIDEBAR NAVIGATION */}
-        <aside className="lg:w-64 shrink-0">
+        {/* SIDEBAR NAVIGATION (Desktop) */}
+        <aside className="lg:w-64 shrink-0 lg:block hidden">
           <nav className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-1.5 sticky top-24 flex flex-col justify-between min-h-[460px]">
-            <div className="space-y-1">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${activeTab === 'dashboard' ? 'bg-green-50 text-green-700 font-semibold' : 'text-slate-500 hover:bg-slate-50 font-medium'}`}
-              >
-                <LayoutDashboard size={14} className={activeTab === 'dashboard' ? 'text-green-600' : 'text-slate-400'} />
-                Panel Principal
-              </button>
-
-              <button
-                onClick={() => setActiveTab('inventory')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${activeTab === 'inventory' ? 'bg-green-50 text-green-700 font-semibold' : 'text-slate-500 hover:bg-slate-50 font-medium'}`}
-              >
-                <Package size={14} className={activeTab === 'inventory' ? 'text-green-600' : 'text-slate-400'} />
-                Inventario
-              </button>
-
-              <button
-                onClick={() => setActiveTab('sales')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${activeTab === 'sales' ? 'bg-green-50 text-green-700 font-semibold' : 'text-slate-500 hover:bg-slate-50 font-medium'}`}
-              >
-                <ShoppingCart size={14} className={activeTab === 'sales' ? 'text-green-600' : 'text-slate-400'} />
-                Caja / Ventas
-              </button>
-
-              <button
-                onClick={() => setActiveTab('purchases')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${activeTab === 'purchases' ? 'bg-green-50 text-green-700 font-semibold' : 'text-slate-500 hover:bg-slate-50 font-medium'}`}
-              >
-                <Truck size={14} className={activeTab === 'purchases' ? 'text-green-600' : 'text-slate-400'} />
-                Compras / Stock
-              </button>
-
-              <button
-                onClick={() => setActiveTab('cxccxp')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${activeTab === 'cxccxp' ? 'bg-green-50 text-green-700 font-semibold' : 'text-slate-500 hover:bg-slate-50 font-medium'}`}
-              >
-                <CreditCard size={14} className={activeTab === 'cxccxp' ? 'text-green-600' : 'text-slate-400'} />
-                Deudas (CxC/CxP)
-              </button>
-
-              <button
-                onClick={() => setActiveTab('contacts')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${activeTab === 'contacts' ? 'bg-green-50 text-green-700 font-semibold' : 'text-slate-500 hover:bg-slate-50 font-medium'}`}
-              >
-                <Contact2 size={14} className={activeTab === 'contacts' ? 'text-green-600' : 'text-slate-400'} />
-                Clientes y Proveedores
-              </button>
-
-              <button
-                onClick={() => setActiveTab('config')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${activeTab === 'config' ? 'bg-green-50 text-green-700 font-semibold' : 'text-slate-500 hover:bg-slate-50 font-medium'}`}
-              >
-                <Sliders size={14} className={activeTab === 'config' ? 'text-green-600' : 'text-slate-400'} />
-                Configuración Empresa
-              </button>
-            </div>
+            {renderNavLinks()}
 
             <div className="pt-4 border-t border-slate-100 flex flex-col gap-3">
               <div className="bg-slate-900 text-white rounded-2xl p-4 text-left">
