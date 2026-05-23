@@ -527,72 +527,82 @@ export default function SalesModule({
               </div>
             </div>
 
-            {/* PRINTABLE SUCCESS RECEIPT TILE */}
+            {/* PRINTABLE SUCCESS RECEIPT IN MODAL OVERLAY */}
             {successReceipt && (
-              <div className="bg-indigo-50 border-2 border-indigo-200 p-6 rounded-3xl space-y-4 shadow-sm animate-scale-up border-dashed">
-                <div className="flex items-center gap-3">
-                  <div className="bg-indigo-500 text-white p-2.5 rounded-2xl shadow-sm">
-                    <Receipt size={24} />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500 font-sans">Transacción Completada</span>
-                    <h4 className="text-base font-bold text-slate-800 font-sans">Factura de Caja #{successReceipt.invoiceNumber}</h4>
-                  </div>
-                </div>
-
-                {/* Receipt Summary Table */}
-                <div className="bg-white rounded-2xl p-4 border border-indigo-100 space-y-3 shadow-inner font-sans">
-                  <div className="flex justify-between text-xs border-b border-indigo-100 pb-2">
-                    <span className="font-bold text-slate-500">Beneficiario:</span>
-                    <span className="font-bold text-slate-800">{successReceipt.customerName}</span>
-                  </div>
-
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                    {successReceipt.items.map((item, i) => (
-                      <div key={i} className="flex justify-between text-xs font-sans">
-                        <span className="text-slate-600 font-medium">{item.emoji} {item.name} x {item.quantity} {item.unit}</span>
-                        <span className="text-slate-800 font-bold font-sans">${item.totalUsd.toFixed(2)} USD</span>
+              <div id="success-receipt-modal-backdrop" className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
+                <div id="success-receipt-modal-card" className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 overflow-hidden transform transition-all animate-scale-up p-5 space-y-4">
+                  
+                  {/* Decorative Ticket Badge */}
+                  <div className="bg-indigo-50 border-2 border-indigo-200 p-6 rounded-2xl space-y-4 border-dashed relative">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-indigo-500 text-white p-2.5 rounded-2xl shadow-sm">
+                        <Receipt size={24} />
                       </div>
-                    ))}
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500 font-sans">Transacción Completada</span>
+                        <h4 className="text-base font-bold text-slate-800 font-sans">Factura de Caja #{successReceipt.invoiceNumber}</h4>
+                      </div>
+                    </div>
+
+                    {/* Receipt Summary Table */}
+                    <div className="bg-white rounded-2xl p-4 border border-indigo-100 space-y-3 shadow-inner font-sans">
+                      <div className="flex justify-between text-xs border-b border-indigo-100 pb-2">
+                        <span className="font-bold text-slate-500">Beneficiario:</span>
+                        <span className="font-bold text-slate-800">{successReceipt.customerName}</span>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                        {successReceipt.items.map((item, i) => (
+                          <div key={i} className="flex justify-between text-xs font-sans">
+                            <span className="text-slate-600 font-medium">{item.emoji} {item.name} x {item.quantity} {item.unit}</span>
+                            <span className="text-slate-800 font-bold font-sans">${item.totalUsd.toFixed(2)} USD</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="border-t border-indigo-100 pt-2 flex flex-col items-end">
+                        <div className="flex justify-between w-full text-xs font-bold text-slate-700">
+                          <span>Método de pago:</span>
+                          <span className="uppercase text-indigo-600 font-extrabold">
+                            {successReceipt.paymentMethod === 'cxc' ? 'Crédito (CxC)' : successReceipt.paymentMethod === 'transfer' ? 'Pago Móvil' : 'Efectivo'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between w-full text-sm font-black text-slate-800 mt-2">
+                          <span>Total Transacción:</span>
+                          <span>${successReceipt.totalUsd.toFixed(2)} USD</span>
+                        </div>
+                        <div className="space-y-0.5 mt-1 text-right">
+                          <span className="text-[10px] font-mono text-emerald-600 font-bold block">
+                            Bs. {(successReceipt.totalUsd * successReceipt.rateAtSale.usdToVes).toFixed(1)} VES
+                          </span>
+                          <span className="text-[10px] font-mono text-emerald-600 font-bold block">
+                            COP ${(successReceipt.totalUsd * successReceipt.rateAtSale.usdToCop).toLocaleString('es-CO')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="border-t border-indigo-100 pt-2 flex flex-col items-end">
-                    <div className="flex justify-between w-full text-xs font-bold text-slate-700">
-                      <span>Método de pago:</span>
-                      <span className="uppercase text-indigo-600 font-extrabold">
-                        {successReceipt.paymentMethod === 'cxc' ? 'Crédito (CxC)' : successReceipt.paymentMethod === 'transfer' ? 'Pago Móvil' : 'Efectivo'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between w-full text-sm font-black text-slate-800 mt-2">
-                      <span>Total Transacción:</span>
-                      <span>${successReceipt.totalUsd.toFixed(2)} USD</span>
-                    </div>
-                    <div className="space-y-0.5 mt-1 text-right">
-                      <span className="text-[10px] font-mono text-emerald-600 font-bold block">
-                        Bs. {(successReceipt.totalUsd * successReceipt.rateAtSale.usdToVes).toFixed(1)} VES
-                      </span>
-                      <span className="text-[10px] font-mono text-emerald-600 font-bold block">
-                        COP ${(successReceipt.totalUsd * successReceipt.rateAtSale.usdToCop).toLocaleString('es-CO')}
-                      </span>
-                    </div>
+                  {/* Operational Action Buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="print-receipt-btn"
+                      onClick={() => window.print()}
+                      className="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5 font-sans"
+                    >
+                      <FileText size={14} /> Imprimir Comprobante Fiscal
+                    </button>
+                    <button
+                      type="button"
+                      id="close-receipt-btn"
+                      onClick={() => setSuccessReceipt(null)}
+                      className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer font-sans"
+                    >
+                      Cerrar Recibo
+                    </button>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="flex-1 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5 font-sans"
-                  >
-                    <FileText size={14} /> Imprimir Comprobante Fiscal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSuccessReceipt(null)}
-                    className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer font-sans"
-                  >
-                    Cerrar Recibo
-                  </button>
                 </div>
               </div>
             )}
