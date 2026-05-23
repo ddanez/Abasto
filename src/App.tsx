@@ -10,10 +10,11 @@ import {
   RefreshCw,
   Coins,
   Receipt,
-  RotateCcw
+  RotateCcw,
+  Sliders
 } from 'lucide-react';
 
-import { Product, Customer, Provider, Sale, Purchase, CxcInvoice, CxpInvoice, ExchangeRate } from './types';
+import { Product, Customer, Provider, Sale, Purchase, CxcInvoice, CxpInvoice, ExchangeRate, CompanyConfig } from './types';
 import CurrencyModal from './components/CurrencyModal';
 import Dashboard from './components/Dashboard';
 import ProductsModule from './components/ProductsModule';
@@ -21,6 +22,7 @@ import SalesModule from './components/SalesModule';
 import PurchasesModule from './components/PurchasesModule';
 import CxcCxpModule from './components/CxcCxpModule';
 import ContactsModule from './components/ContactsModule';
+import CompanyConfigModule from './components/CompanyConfigModule';
 
 export default function App() {
   const [rates, setRates] = useState<ExchangeRate>({ usdToVes: 0, usdToCop: 0, date: '' });
@@ -32,9 +34,17 @@ export default function App() {
   const [cxc, setCxc] = useState<CxcInvoice[]>([]);
   const [cxp, setCxp] = useState<CxpInvoice[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'inventory' | 'sales' | 'purchases' | 'cxccxp' | 'contacts'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'inventory' | 'sales' | 'purchases' | 'cxccxp' | 'contacts' | 'config'>('dashboard');
   const [loading, setLoading] = useState(true);
   const [showConfigRateModal, setShowConfigRateModal] = useState(false);
+  const [companyConfig, setCompanyConfig] = useState<CompanyConfig>({
+    name: 'Súper Abasto Familiar',
+    emoji: '🥦',
+    document: 'J-12345678-0',
+    phone: '0414-0001122',
+    address: 'Av. Principal, Sector Centro, Caracas',
+    footerText: '¡Gracias por preferirnos! Guarde su comprobante.'
+  });
 
   // Fetch complete database state
   const fetchDb = async () => {
@@ -49,6 +59,9 @@ export default function App() {
         setPurchases(data.purchases || []);
         setCxc(data.cxc || []);
         setCxp(data.cxp || []);
+        if (data.companyConfig) {
+          setCompanyConfig(data.companyConfig);
+        }
         if (data.rates) {
           setRates(data.rates);
           // If rates are loaded but is 0, we must ask the user to enter them
@@ -86,6 +99,26 @@ export default function App() {
     } catch (err) {
       alert("Error estableciendo cotizaciones. Inténtelo de nuevo.");
       console.error(err);
+    }
+  };
+
+  // Company config update actions
+  const handleUpdateCompanyConfig = async (newConfig: CompanyConfig) => {
+    try {
+      const res = await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newConfig)
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setCompanyConfig(updated);
+      } else {
+        throw new Error('Error al actualizar la configuración de la empresa');
+      }
+    } catch (err) {
+      console.error(err);
+      throw err;
     }
   };
 
@@ -281,13 +314,13 @@ export default function App() {
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           
           {/* Brand/Store description */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('config')} title="Ir a Configuración">
             <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-xl shadow-lg shadow-green-200">
-              🥦
+              {companyConfig.emoji}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-tight text-slate-800 uppercase">Súper Abasto Familiar</h1>
+                <h1 className="text-base font-bold tracking-tight text-slate-800 uppercase">{companyConfig.name}</h1>
               </div>
               <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Gestión Integrada • Víveres, Frutas y Verduras</p>
             </div>
@@ -383,6 +416,14 @@ export default function App() {
                 <Contact2 size={14} className={activeTab === 'contacts' ? 'text-green-600' : 'text-slate-400'} />
                 Clientes y Proveedores
               </button>
+
+              <button
+                onClick={() => setActiveTab('config')}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${activeTab === 'config' ? 'bg-green-50 text-green-700 font-semibold' : 'text-slate-500 hover:bg-slate-50 font-medium'}`}
+              >
+                <Sliders size={14} className={activeTab === 'config' ? 'text-green-600' : 'text-slate-400'} />
+                Configuración Empresa
+              </button>
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex flex-col gap-3">
@@ -461,13 +502,20 @@ export default function App() {
               onUpdateProvider={handleUpdateProvider}
             />
           )}
+
+          {activeTab === 'config' && (
+            <CompanyConfigModule
+              config={companyConfig}
+              onUpdateConfig={handleUpdateCompanyConfig}
+            />
+          )}
         </main>
 
       </div>
 
       <footer className="bg-white border-t border-slate-150 py-4 mt-auto">
         <div className="max-w-7xl mx-auto px-4 text-center text-[11px] text-slate-400 font-medium">
-          Súper Abasto Familiar © 2026. Todos los derechos reservados. Sistema administrativo local de alta seguridad.
+          {companyConfig.name} © 2026. Todos los derechos reservados. Sistema administrativo local de alta seguridad.
         </div>
       </footer>
     </div>

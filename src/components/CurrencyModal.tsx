@@ -104,29 +104,6 @@ export default function CurrencyModal({ onRatesSubmit, currentRates }: CurrencyM
             </div>
           </div>
 
-          {/* Presets */}
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block mb-2">Tasas Referenciales Rápidas</span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => loadPreset(36.50, 3950)}
-                className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200 hover:border-green-600 hover:bg-green-50 text-slate-700 hover:text-green-700 transition-all text-left"
-              >
-                <span>BCV + TRM Standard</span>
-                <ArrowRight size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={() => loadPreset(37.20, 4000)}
-                className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200 hover:border-green-600 hover:bg-green-50 text-slate-700 hover:text-green-700 transition-all text-left"
-              >
-                <span>Mercado Libre</span>
-                <ArrowRight size={12} />
-              </button>
-            </div>
-          </div>
-
           <button
             type="submit"
             className="w-full py-4 px-6 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl shadow-sm hover:scale-[1.01] transition-all flex items-center justify-center gap-2 text-base cursor-pointer"

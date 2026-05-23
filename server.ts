@@ -19,6 +19,14 @@ function initDb() {
 
   if (!fs.existsSync(DB_FILE)) {
     const initialData = {
+      companyConfig: {
+        name: 'Súper Abasto Familiar',
+        emoji: '🥦',
+        document: 'J-12345678-0',
+        phone: '0414-0001122',
+        address: 'Av. Principal, Sector Centro, Caracas',
+        footerText: '¡Gracias por preferirnos! Guarde su comprobante.'
+      },
       rates: { usdToVes: 0, usdToCop: 0, date: '' },
       products: [
         { id: 'p1', name: 'Manzanas Rojas', category: 'frutas', emoji: '🍎', stock: 120, unit: 'kg', costUsd: 1.80, priceUsd: 2.80, minStock: 20 },
@@ -135,10 +143,39 @@ function readDb() {
   initDb();
   try {
     const content = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(content);
+    const db = JSON.parse(content);
+    if (!db.companyConfig) {
+      db.companyConfig = {
+        name: 'Súper Abasto Familiar',
+        emoji: '🥦',
+        document: 'J-12345678-0',
+        phone: '0414-0001122',
+        address: 'Av. Principal, Sector Centro, Caracas',
+        footerText: '¡Gracias por preferirnos! Guarde su comprobante.'
+      };
+      writeDb(db);
+    }
+    return db;
   } catch (err) {
     console.error("Error reading db.json, returning backup default structure", err);
-    return { rates: { usdToVes: 0, usdToCop: 0, date: '' }, products: [], customers: [], providers: [], sales: [], purchases: [], cxc: [], cxp: [] };
+    return {
+      companyConfig: {
+        name: 'Súper Abasto Familiar',
+        emoji: '🥦',
+        document: 'J-12345678-0',
+        phone: '0414-0001122',
+        address: 'Av. Principal, Sector Centro, Caracas',
+        footerText: '¡Gracias por preferirnos! Guarde su comprobante.'
+      },
+      rates: { usdToVes: 0, usdToCop: 0, date: '' },
+      products: [],
+      customers: [],
+      providers: [],
+      sales: [],
+      purchases: [],
+      cxc: [],
+      cxp: []
+    };
   }
 }
 
@@ -154,6 +191,30 @@ function writeDb(data: any) {
 initDb();
 
 // --- API ENDPOINTS ---
+
+// Get Company Config
+app.get('/api/config', (req, res) => {
+  const db = readDb();
+  res.json(db.companyConfig);
+});
+
+// Update Company Config
+app.put('/api/config', (req, res) => {
+  const { name, emoji, document, phone, address, footerText } = req.body;
+  
+  const db = readDb();
+  db.companyConfig = {
+    name: name || 'Súper Abasto Familiar',
+    emoji: emoji || '🥦',
+    document: document || '',
+    phone: phone || '',
+    address: address || '',
+    footerText: footerText || ''
+  };
+  
+  writeDb(db);
+  res.json(db.companyConfig);
+});
 
 // Get all DB stats and elements
 app.get('/api/db', (req, res) => {

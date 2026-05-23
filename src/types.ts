@@ -131,3 +131,13 @@ export interface FinancialStats {
   inventoryValueSaleUsd: number;
   projectedProfitUsd: number;
 }
+
+export interface CompanyConfig {
+  name: string;
+  emoji: string;
+  document: string;
+  phone: string;
+  address: string;
+  footerText: string;
+}
+
