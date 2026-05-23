@@ -496,7 +496,7 @@ export default function PurchasesModule({
 
           {/* RIGHT: COMPRANDO CART PANEL */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between max-h-[85vh] h-full">
+            <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between lg:max-h-[85vh] lg:h-full h-auto min-h-[500px]">
               <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 font-sans">
                   <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -514,8 +514,10 @@ export default function PurchasesModule({
                   )}
                 </div>
 
-                {/* Cart list items */}
-                <div className="space-y-2.5 overflow-y-auto flex-1 pr-1 font-sans">
+                {/* Scrollable Items & Setup Fields Container */}
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+                  {/* Cart list items */}
+                  <div className="space-y-2.5 font-sans">
                   {cart.length === 0 ? (
                     <div className="text-center py-16 text-slate-400 space-y-1">
                       <Package size={36} className="mx-auto text-slate-300" />
@@ -790,6 +792,7 @@ export default function PurchasesModule({
                     )}
                   </div>
                 )}
+                </div>
               </div>
 
               {/* Checkout pricing sum */}

@@ -600,7 +600,7 @@ export default function SalesModule({
 
           {/* RIGHT: SHOPPING CART & CHECKOUT CONTROLLER */}
           <div className="lg:col-span-5 space-y-4">
-            <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between max-h-[85vh] h-full">
+            <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between lg:max-h-[85vh] lg:h-full h-auto min-h-[500px]">
               <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
                 {/* Cart Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -618,8 +618,10 @@ export default function SalesModule({
                   )}
                 </div>
 
-                {/* Cart Items List */}
-                <div className="space-y-2.5 overflow-y-auto flex-1 pr-1">
+                {/* Scrollable Items & Setup Fields Container */}
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+                  {/* Cart Items List */}
+                  <div className="space-y-2.5">
                   {cart.length === 0 ? (
                     <div className="text-center py-14 text-slate-400 space-y-1">
                       <ShoppingCart size={32} className="mx-auto text-slate-300" />
@@ -916,6 +918,7 @@ export default function SalesModule({
                       </div>
                     )}
                   </div>
+                </div>
                 </div>
 
                 {/* Cart Pricing Panel */}
