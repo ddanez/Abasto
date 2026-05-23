@@ -469,9 +469,13 @@ export default function App() {
             </button>
 
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActiveTab('config')} title="Ir a Configuración">
-              <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-xl shadow-lg shadow-green-100 shrink-0">
-                {companyConfig.emoji}
-              </div>
+              {companyConfig.logoBase64 ? (
+                <img src={companyConfig.logoBase64} alt="Logo" className="w-10 h-10 rounded-xl object-contain bg-white border border-slate-200 p-0.5 shrink-0 shadow-md" />
+              ) : (
+                <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-xl shadow-lg shadow-green-100 shrink-0">
+                  {companyConfig.emoji}
+                </div>
+              )}
               <div>
                 <h1 className="text-xs sm:text-sm font-bold tracking-tight text-slate-850 uppercase leading-none">{companyConfig.name}</h1>
                 <p className="hidden md:block text-[9px] uppercase font-bold text-slate-400 tracking-wider mt-1.5 font-sans">Gestión Integrada • Víveres y Abasto</p>
@@ -567,6 +571,7 @@ export default function App() {
               products={products}
               customers={customers}
               rates={rates}
+              companyConfig={companyConfig}
               onRecordSale={handleRecordSale}
               onAddCustomer={handleAddCustomer}
               sales={sales}
@@ -619,9 +624,9 @@ export default function App() {
 
       </div>
 
-      <footer className="bg-white border-t border-slate-150 py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 text-center text-[11px] text-slate-400 font-medium">
-          {companyConfig.name} © 2026. Todos los derechos reservados. Sistema administrativo local de alta seguridad.
+      <footer className="bg-white border-t border-slate-150 py-4 mt-auto text-center">
+        <div className="max-w-7xl mx-auto px-4 text-[11px] text-slate-400 font-medium">
+          FJPM & AI © 2026. Todos los derechos reservados. Sistema administrativo local de alta seguridad
         </div>
       </footer>
     </div>

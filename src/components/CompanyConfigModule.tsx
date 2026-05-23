@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, Save, Phone, MapPin, FileSpreadsheet, Check, Smile, Percent } from 'lucide-react';
+import { Building2, Save, Phone, MapPin, FileSpreadsheet, Check, Smile, Percent, Upload, X } from 'lucide-react';
 import { CompanyConfig } from '../types';
 
 interface CompanyConfigModuleProps {
@@ -16,6 +16,7 @@ export default function CompanyConfigModule({ config, onUpdateConfig }: CompanyC
   const [phone, setPhone] = useState(config.phone);
   const [address, setAddress] = useState(config.address);
   const [footerText, setFooterText] = useState(config.footerText);
+  const [logoBase64, setLogoBase64] = useState(config.logoBase64 || '');
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -37,6 +38,7 @@ export default function CompanyConfigModule({ config, onUpdateConfig }: CompanyC
         phone: phone.trim(),
         address: address.trim(),
         footerText: footerText.trim(),
+        logoBase64: logoBase64,
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -59,9 +61,13 @@ export default function CompanyConfigModule({ config, onUpdateConfig }: CompanyC
           </p>
         </div>
         <div className="flex items-center gap-3 bg-green-50 px-4 py-3 rounded-2xl border border-green-100 self-start md:self-auto">
-          <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center text-2xl shadow-md">
-            {emoji}
-          </div>
+          {logoBase64 ? (
+            <img src={logoBase64} alt="Logo" className="w-12 h-12 rounded-xl object-contain shadow-md bg-white border border-slate-200 p-1" />
+          ) : (
+            <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center text-2xl shadow-md">
+              {emoji}
+            </div>
+          )}
           <div>
             <p className="text-xs font-bold text-slate-700 leading-none">{name || 'Sin Nombre'}</p>
             <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">{document || 'Sin Documento'}</p>
@@ -146,9 +152,59 @@ export default function CompanyConfigModule({ config, onUpdateConfig }: CompanyC
               </div>
             </div>
 
+            {/* CUSTOM LOGO UPLOAD */}
+            <div className="md:col-span-2">
+              <label id="lbl-custom-logo-upload" className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Logo de la Empresa (Imagen PNG/JPG)</label>
+              <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                {logoBase64 ? (
+                  <div className="relative group">
+                    <img src={logoBase64} alt="Company Logo" className="w-20 h-20 object-contain rounded-xl bg-white border border-slate-150 p-2 shadow-sm" />
+                    <button
+                      type="button"
+                      onClick={() => setLogoBase64('')}
+                      className="absolute -top-1.5 -right-1.5 bg-rose-500 hover:bg-rose-600 text-white p-1 rounded-full shadow-md hover:scale-110 active:scale-95 transition-all cursor-pointer"
+                      title="Eliminar logo"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-xl bg-slate-100 flex flex-col items-center justify-center border border-slate-200 text-slate-400">
+                    <Upload size={24} />
+                    <span className="text-[9px] mt-1 uppercase font-bold tracking-wider">Sin Logo</span>
+                  </div>
+                )}
+                
+                <div className="flex-1 text-center sm:text-left space-y-1.5">
+                  <p className="text-xs font-bold text-slate-700">Sube una imagen para tu logo</p>
+                  <p className="text-[10px] text-slate-400 leading-normal">Se recomienda fondo transparente, formato JPG o PNG. Tamaño máximo recomendado de 800 KB.</p>
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50/10 text-slate-700 text-[11px] font-bold rounded-lg cursor-pointer shadow-sm transition-all border-dashed">
+                    <Upload size={12} />
+                    <span>Seleccionar archivo</span>
+                    <input
+                      type="file"
+                      id="company-logo-input"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setLogoBase64(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
             {/* EMOJI SELECTOR */}
             <div className="md:col-span-2">
-              <label id="lbl-company-logo" className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ícono / Logo representativo</label>
+              <label id="lbl-company-logo" className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ícono / Emoji alternativo (Si no subes logo)</label>
               <div className="flex flex-wrap items-center gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-150">
                 {EMOJI_OPTIONS.map((opt) => (
                   <button
@@ -207,7 +263,11 @@ export default function CompanyConfigModule({ config, onUpdateConfig }: CompanyC
             <div className="absolute top-1 right-2 text-[8px] text-amber-500 font-sans font-bold">REPRESENTACIÓN VIRTUAL</div>
             {/* Header */}
             <div className="text-center space-y-1">
-              <span className="text-3xl block filter drop-shadow">{emoji}</span>
+              {logoBase64 ? (
+                <img src={logoBase64} alt="Logo" className="w-16 h-16 rounded-xl object-contain mx-auto bg-white border border-slate-200 p-1 shadow-sm mb-1" />
+              ) : (
+                <span className="text-3xl block filter drop-shadow">{emoji}</span>
+              )}
               <p className="font-extrabold text-slate-800 uppercase text-xs tracking-tight">{name || 'Súper Abasto Familiar'}</p>
               <p className="text-[9px] text-slate-400">RIF/DOC: {document || 'J-12345678-0'}</p>
               <p className="text-[9px] text-slate-400">Telf: {phone || '0414-0001122'}</p>

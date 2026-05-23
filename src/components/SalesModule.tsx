@@ -17,14 +17,18 @@ import {
   X,
   Calendar,
   UserCheck,
-  Clock
+  Clock,
+  Download,
+  Share2
 } from 'lucide-react';
-import { Product, Customer, SaleItem, ExchangeRate, Sale } from '../types';
+import { Product, Customer, SaleItem, ExchangeRate, Sale, CompanyConfig } from '../types';
+import html2canvas from 'html2canvas';
 
 interface SalesModuleProps {
   products: Product[];
   customers: Customer[];
   rates: ExchangeRate;
+  companyConfig?: CompanyConfig;
   onRecordSale: (saleData: {
     customerId: string;
     customerName: string;
@@ -42,6 +46,7 @@ export default function SalesModule({
   products,
   customers,
   rates,
+  companyConfig,
   onRecordSale,
   onAddCustomer,
   sales = [],
@@ -56,6 +61,32 @@ export default function SalesModule({
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successReceipt, setSuccessReceipt] = useState<Sale | null>(null);
+  const [whatsappPhone, setWhatsappPhone] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadImage = async () => {
+    const el = document.getElementById('receipt-ticket-print');
+    if (!el || !successReceipt) return;
+    setIsDownloading(true);
+    try {
+      // Double resolution scale for premium text rendering
+      const canvas = await html2canvas(el, {
+        backgroundColor: '#ffffff',
+        scale: 2.5,
+        useCORS: true,
+        logging: false
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const actionLink = document.createElement('a');
+      actionLink.href = dataUrl;
+      actionLink.download = `Factura_${successReceipt.invoiceNumber}_${companyConfig?.name?.replace(/\s+/g, '_') || 'Venta'}.png`;
+      actionLink.click();
+    } catch (err) {
+      console.error("Error creating receipt image file:", err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   // Tab and search for History
   const [activeSubTab, setActiveSubTab] = useState<'checkout' | 'history'>('checkout');
@@ -398,6 +429,13 @@ export default function SalesModule({
 
       if (response && response.id) {
         setSuccessReceipt(response);
+        // Prefill WhatsApp phone number
+        const matchedCust = customers.find(c => c.id === response.customerId);
+        if (matchedCust && matchedCust.phone) {
+          setWhatsappPhone(matchedCust.phone.replace(/\D/g, ''));
+        } else {
+          setWhatsappPhone('');
+        }
         setCart([]);
         setDownpaymentUsd('0');
       }
@@ -529,78 +567,190 @@ export default function SalesModule({
 
             {/* PRINTABLE SUCCESS RECEIPT IN MODAL OVERLAY */}
             {successReceipt && (
-              <div id="success-receipt-modal-backdrop" className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-                <div id="success-receipt-modal-card" className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 overflow-hidden transform transition-all animate-scale-up p-5 space-y-4">
+              <div id="success-receipt-modal-backdrop" className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
+                <div id="success-receipt-modal-card" className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full border border-slate-100 overflow-hidden transform transition-all animate-scale-up p-6 grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
                   
-                  {/* Decorative Ticket Badge */}
-                  <div className="bg-indigo-50 border-2 border-indigo-200 p-6 rounded-2xl space-y-4 border-dashed relative">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-indigo-500 text-white p-2.5 rounded-2xl shadow-sm">
-                        <Receipt size={24} />
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500 font-sans">Transacción Completada</span>
-                        <h4 className="text-base font-bold text-slate-800 font-sans">Factura de Caja #{successReceipt.invoiceNumber}</h4>
-                      </div>
-                    </div>
+                  {/* LEFT COLUMN: GORGEOUS CASHIER TICKET WRAPPER DESIGNED FOR IMAGE CAPTURE */}
+                  <div className="flex flex-col items-center space-y-3">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500 font-sans self-start">Factura de Caja</span>
+                    
+                    {/* Capture Frame */}
+                    <div className="border border-slate-200 rounded-2xl p-2 bg-slate-50/50 w-full flex justify-center">
+                      <div
+                        id="receipt-ticket-print"
+                        className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative font-sans text-slate-800 w-full"
+                        style={{ maxWidth: '350px', backgroundColor: '#ffffff' }}
+                      >
+                        {/* Header Details */}
+                        <div className="text-center space-y-1 pb-3 border-b border-dashed border-slate-300">
+                          {companyConfig?.logoBase64 ? (
+                            <img src={companyConfig.logoBase64} alt="Company Logo" className="w-14 h-14 rounded-full object-contain mx-auto bg-white border border-slate-150 p-1 mb-1 shadow-sm" />
+                          ) : (
+                            <span className="text-3xl block">{companyConfig?.emoji || '🏪'}</span>
+                          )}
+                          <h3 className="font-extrabold text-slate-900 uppercase text-xs sm:text-sm tracking-tight">{companyConfig?.name || 'Comercio'}</h3>
+                          <p className="text-[9px] text-slate-400 font-bold tracking-wider">RIF/DOC: {companyConfig?.document || 'Sin Documento'}</p>
+                          {companyConfig?.phone && <p className="text-[9px] text-slate-400 font-medium">Telf: {companyConfig.phone}</p>}
+                          {companyConfig?.address && <p className="text-[9px] text-slate-400 font-medium max-w-[250px] mx-auto break-words leading-tight">{companyConfig.address}</p>}
+                        </div>
 
-                    {/* Receipt Summary Table */}
-                    <div className="bg-white rounded-2xl p-4 border border-indigo-100 space-y-3 shadow-inner font-sans">
-                      <div className="flex justify-between text-xs border-b border-indigo-100 pb-2">
-                        <span className="font-bold text-slate-500">Beneficiario:</span>
-                        <span className="font-bold text-slate-800">{successReceipt.customerName}</span>
-                      </div>
-
-                      <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                        {successReceipt.items.map((item, i) => (
-                          <div key={i} className="flex justify-between text-xs font-sans">
-                            <span className="text-slate-600 font-medium">{item.emoji} {item.name} x {item.quantity} {item.unit}</span>
-                            <span className="text-slate-800 font-bold font-sans">${(item.totalUsd !== undefined && item.totalUsd !== null ? item.totalUsd : (item.quantity * item.priceUsd)).toFixed(2)} USD</span>
+                        {/* Customer Metadata */}
+                        <div className="text-[10px] text-slate-500 space-y-0.5 py-2.5">
+                          <div className="flex justify-between font-bold">
+                            <span>FACTURA DE VENTA:</span>
+                            <span className="text-slate-800 font-mono font-bold">#{successReceipt.invoiceNumber}</span>
                           </div>
-                        ))}
-                      </div>
+                          <div className="flex justify-between">
+                            <span>FECHA DE EMISIÓN:</span>
+                            <span>{new Date(successReceipt.date).toLocaleString('es-ES')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>BENEFICIARIO:</span>
+                            <span className="text-slate-800 font-extrabold uppercase">{successReceipt.customerName}</span>
+                          </div>
+                        </div>
 
-                      <div className="border-t border-indigo-100 pt-2 flex flex-col items-end">
-                        <div className="flex justify-between w-full text-xs font-bold text-slate-700">
-                          <span>Método de pago:</span>
-                          <span className="uppercase text-indigo-600 font-extrabold">
-                            {successReceipt.paymentMethod === 'cxc' ? 'Crédito (CxC)' : successReceipt.paymentMethod === 'transfer' ? 'Pago Móvil' : 'Efectivo'}
-                          </span>
+                        <div className="border-t border-dashed border-slate-300 my-1"></div>
+
+                        {/* Items Table */}
+                        <div className="space-y-1.5 py-2 max-h-36 overflow-y-auto pr-0.5">
+                          {successReceipt.items.map((item, i) => (
+                            <div key={i} className="flex justify-between text-xs items-start">
+                              <span className="text-slate-600 font-medium leading-tight text-left break-words max-w-[190px]">
+                                {item.emoji} {item.name} <span className="text-[9px] text-slate-405 block font-normal">x {item.quantity} {item.unit} (${item.priceUsd.toFixed(2)})</span>
+                              </span>
+                              <span className="text-slate-800 font-bold shrink-0">
+                                ${(item.totalUsd !== undefined && item.totalUsd !== null ? item.totalUsd : (item.quantity * item.priceUsd)).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                        <div className="flex justify-between w-full text-sm font-black text-slate-800 mt-2">
-                          <span>Total Transacción:</span>
-                          <span>${successReceipt.totalUsd.toFixed(2)} USD</span>
+
+                        <div className="border-t border-dashed border-slate-300 my-1"></div>
+
+                        {/* Totals Section */}
+                        <div className="space-y-1.5 pt-2 text-slate-600">
+                          <div className="flex justify-between text-[11px] font-bold">
+                            <span>MÉTODO DE PAGO:</span>
+                            <span className="uppercase text-indigo-600 font-extrabold">
+                              {successReceipt.paymentMethod === 'cxc' ? 'Crédito (CxC)' : successReceipt.paymentMethod === 'transfer' ? 'Pago Móvil' : 'Efectivo'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs font-black text-slate-900 border-t border-slate-100 pt-1.5">
+                            <span>TOTAL NETO VALOR:</span>
+                            <span className="text-sm font-extrabold text-indigo-650">${successReceipt.totalUsd.toFixed(2)} USD</span>
+                          </div>
+                          <div className="space-y-0.5 text-right font-bold text-emerald-600 leading-none">
+                            <span className="text-[9px] block">
+                              Bs. {(successReceipt.totalUsd * successReceipt.rateAtSale.usdToVes).toFixed(1)} VES
+                            </span>
+                            <span className="text-[9px] block">
+                              COP ${(successReceipt.totalUsd * successReceipt.rateAtSale.usdToCop).toLocaleString('es-CO')}
+                            </span>
+                          </div>
                         </div>
-                        <div className="space-y-0.5 mt-1 text-right">
-                          <span className="text-[10px] font-mono text-emerald-600 font-bold block">
-                            Bs. {(successReceipt.totalUsd * successReceipt.rateAtSale.usdToVes).toFixed(1)} VES
-                          </span>
-                          <span className="text-[10px] font-mono text-emerald-600 font-bold block">
-                            COP ${(successReceipt.totalUsd * successReceipt.rateAtSale.usdToCop).toLocaleString('es-CO')}
-                          </span>
+
+                        <div className="border-t border-dashed border-slate-300 pt-3 mt-3">
+                          <p className="text-center text-[9.5px] text-slate-400 italic break-words leading-relaxed font-sans">
+                            "{companyConfig?.footerText || '¡Gracias por su compra, vuelva pronto!'}"
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Operational Action Buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      id="print-receipt-btn"
-                      onClick={() => window.print()}
-                      className="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5 font-sans"
-                    >
-                      <FileText size={14} /> Imprimir Comprobante Fiscal
-                    </button>
-                    <button
-                      type="button"
-                      id="close-receipt-btn"
-                      onClick={() => setSuccessReceipt(null)}
-                      className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer font-sans"
-                    >
-                      Cerrar Recibo
-                    </button>
+                  {/* RIGHT COLUMN: ACTION PANEL & WHATSAPP SENDER TOOLS */}
+                  <div className="flex flex-col justify-between space-y-4">
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500 font-sans">Canales de Distribución</span>
+                      <h4 className="text-base font-bold text-slate-800 mt-1">Enviar y Compartir Factura</h4>
+                      <p className="text-slate-500 text-xs mt-1.5 leading-relaxed">
+                        El proceso de caja se ha registrado exitosamente en el sistema. Puedes descargar la factura como una imagen o enviarla directamente por WhatsApp al cliente.
+                      </p>
+                    </div>
+
+                    {/* WhatsApp Tool Block */}
+                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                        <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">Enviar Comprobante por WhatsApp</span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Número Telefónico del Cliente</label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3.5 top-2 text-xs font-black text-slate-400">+</span>
+                            <input
+                              type="tel"
+                              placeholder="Ej. 584141112233"
+                              value={whatsappPhone}
+                              onChange={(e) => setWhatsappPhone(e.target.value.replace(/\D/g, ''))}
+                              className="w-full pl-6 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white focus:border-emerald-500 outline-none font-bold text-slate-800"
+                            />
+                          </div>
+                          
+                          <a
+                            href={`https://api.whatsapp.com/send?phone=${whatsappPhone}&text=${encodeURIComponent(
+                              `🧾 *FACTURA ELECTRÓNICA* 🧾\n` +
+                              `-----------------------------------------\n` +
+                              `🏢 *${companyConfig?.name || 'Comercio'}*\n` +
+                              `📋 Factura ID: #${successReceipt.invoiceNumber}\n` +
+                              `👤 Cliente: *${successReceipt.customerName}*\n` +
+                              `📅 Fecha: ${new Date(successReceipt.date).toLocaleString('es-ES')}\n` +
+                              `-----------------------------------------\n` +
+                              `🛍️ *Detalles de Venta:*\n` +
+                              successReceipt.items.map(item => `• ${item.emoji || '📦'} ${item.name} x ${item.quantity} ${item.unit}: *$${(item.totalUsd !== undefined ? item.totalUsd : (item.quantity * item.priceUsd)).toFixed(2)} USD*`).join('\n') + `\n` +
+                              `-----------------------------------------\n` +
+                              `💵 *TOTAL PAGADO: $${successReceipt.totalUsd.toFixed(2)} USD*\n` +
+                              `🇻🇪 Equiv. VES: *Bs. ${(successReceipt.totalUsd * successReceipt.rateAtSale.usdToVes).toFixed(1)} VES*\n` +
+                              `🇨🇴 Equiv. COP: *COP $${(successReceipt.totalUsd * successReceipt.rateAtSale.usdToCop).toLocaleString('es-CO')}*\n` +
+                              `🤝 Vía de pago: *${successReceipt.paymentMethod === 'cxc' ? 'Crédito (CxC)' : successReceipt.paymentMethod === 'transfer' ? 'Pago Móvil' : 'Efectivo'}*\n\n` +
+                              `💬 _"${companyConfig?.footerText || '¡Gracias por su compra!'}"_`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 ${!whatsappPhone ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}
+                          >
+                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.62.962 3.21 1.493 4.816 1.494 5.505.002 9.982-4.475 9.985-9.983.001-2.67-1.03-5.18-2.901-7.051C16.621 1.743 14.113.712 11.442.712 5.936.712 1.459 5.19 1.456 10.697c-.001 1.705.452 3.37 1.31 4.8l-.946 3.454 3.534-.927zM17.51 14.115c-.29-.145-1.71-.845-1.97-.94-.26-.096-.45-.145-.64.145-.19.29-.73.94-.9 1.13-.17.19-.34.215-.63.07-1.12-.56-1.98-.865-2.766-1.635-.385-.385-.615-.86-.715-1.05-.1-.19-.01-.29.08-.38.085-.08.19-.215.29-.32.095-.105.13-.18.195-.31.065-.13.03-.245-.015-.34-.045-.095-.45-1.08-.615-1.485-.16-.39-.32-.34-.45-.345-.115-.005-.25-.005-.385-.005-.135 0-.35.05-.53.25-.18.2-.69.675-.69 1.64 0 .965.7 1.895.8 2.01.1.115 1.378 2.105 3.34 2.95.467.2.83.32 1.112.41.47.15.897.13 1.233.08.375-.05 1.13-.46 1.29-.91.16-.45.16-.835.11-.91-.05-.075-.19-.12-.48-.26z" />
+                            </svg>
+                            <span>Enviar</span>
+                          </a>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-tight">Introduce el número con el formato del código de país (ej. sin ceros iniciales ni signos: <span className="font-bold">584149999999</span>).</p>
+                      </div>
+                    </div>
+
+                    {/* Operational Action Buttons */}
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={handleDownloadImage}
+                        disabled={isDownloading}
+                        className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-2xl text-xs transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.98]"
+                      >
+                        <Download size={14} />
+                        {isDownloading ? 'Generando Imagen...' : '📥 Guardar/Descargar Factura como Imagen (PNG)'}
+                      </button>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => window.print()}
+                          className="py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <FileText size={14} /> Imprimir Ticket
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSuccessReceipt(null)}
+                          className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition-all cursor-pointer font-sans"
+                        >
+                          Cerrar Recibo
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                 </div>

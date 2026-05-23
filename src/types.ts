@@ -139,5 +139,6 @@ export interface CompanyConfig {
   phone: string;
   address: string;
   footerText: string;
+  logoBase64?: string;
 }
 

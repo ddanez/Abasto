@@ -200,7 +200,7 @@ app.get('/api/config', (req, res) => {
 
 // Update Company Config
 app.put('/api/config', (req, res) => {
-  const { name, emoji, document, phone, address, footerText } = req.body;
+  const { name, emoji, document, phone, address, footerText, logoBase64 } = req.body;
   
   const db = readDb();
   db.companyConfig = {
@@ -209,7 +209,8 @@ app.put('/api/config', (req, res) => {
     document: document || '',
     phone: phone || '',
     address: address || '',
-    footerText: footerText || ''
+    footerText: footerText || '',
+    logoBase64: logoBase64 || ''
   };
   
   writeDb(db);
