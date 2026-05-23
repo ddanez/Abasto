@@ -27,7 +27,7 @@ interface PurchasesModuleProps {
 }
 
 export default function PurchasesModule({ products, providers, rates, onRecordPurchase }: PurchasesModuleProps) {
-  const [cart, setCart] = useState<{ product: Product; quantity: number; newCostUsd: number }[]>([]);
+  const [cart, setCart] = useState<{ product: Product; quantity: number | string; newCostUsd: number }[]>([]);
   const [selectedProviderId, setSelectedProviderId] = useState<string>(providers[0]?.id || '');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'cxp' | 'transfer'>('cash');
   const [downpaymentUsd, setDownpaymentUsd] = useState<string>('0');
@@ -45,7 +45,10 @@ export default function PurchasesModule({ products, providers, rates, onRecordPu
   }, [providers, selectedProviderId]);
 
   const totalUsd = useMemo(() => {
-    return cart.reduce((sum, item) => sum + (item.newCostUsd * item.quantity), 0);
+    return cart.reduce((sum, item) => {
+      const qty = parseFloat(String(item.quantity)) || 0;
+      return sum + (item.newCostUsd * qty);
+    }, 0);
   }, [cart]);
 
   const totalVes = totalUsd * rates.usdToVes;
@@ -54,8 +57,9 @@ export default function PurchasesModule({ products, providers, rates, onRecordPu
   const addItemToPurchase = (prod: Product) => {
     const existing = cart.find(item => item.product.id === prod.id);
     if (existing) {
+      const currentQty = parseFloat(String(existing.quantity)) || 0;
       setCart(cart.map(item =>
-        item.product.id === prod.id ? { ...item, quantity: item.quantity + 1 } : item
+        item.product.id === prod.id ? { ...item, quantity: Number((currentQty + 1).toFixed(3)) } : item
       ));
     } else {
       setCart([...cart, { product: prod, quantity: 1, newCostUsd: prod.costUsd }]);
@@ -73,12 +77,35 @@ export default function PurchasesModule({ products, providers, rates, onRecordPu
     const item = cart.find(i => i.product.id === productId);
     if (!item) return;
 
-    const newQty = item.quantity + val;
+    const currentQty = parseFloat(String(item.quantity)) || 0;
+    const newQty = Number((currentQty + val).toFixed(3));
     if (newQty <= 0) {
       setCart(cart.filter(i => i.product.id !== productId));
     } else {
       setCart(cart.map(i =>
         i.product.id === productId ? { ...i, quantity: newQty } : i
+      ));
+    }
+  };
+
+  const handleManualQuantityChange = (productId: string, valStr: string) => {
+    const cleanStr = valStr.replace(',', '.'); // Permitir comas
+    setCart(cart.map(i =>
+      i.product.id === productId ? { ...i, quantity: cleanStr } : i
+    ));
+    setSuccessMsg('');
+  };
+
+  const handleManualQuantityBlur = (productId: string, valStr: string) => {
+    const item = cart.find(i => i.product.id === productId);
+    if (!item) return;
+
+    let parsed = parseFloat(valStr) || 0;
+    if (parsed <= 0) {
+      setCart(cart.filter(i => i.product.id !== productId));
+    } else {
+      setCart(cart.map(i =>
+        i.product.id === productId ? { ...i, quantity: Number(parsed.toFixed(3)) } : i
       ));
     }
   };
@@ -91,6 +118,16 @@ export default function PurchasesModule({ products, providers, rates, onRecordPu
 
   const handleSubmitPurchase = async () => {
     if (cart.length === 0) return;
+    
+    // Validar cantidades mayores a cero
+    for (const item of cart) {
+      const qty = parseFloat(String(item.quantity)) || 0;
+      if (qty <= 0) {
+        setErrorMessage(`La cantidad para ${item.product.name} debe ser mayor a 0.`);
+        return;
+      }
+    }
+
     if (!selectedProviderId) {
       setErrorMessage('Por favor, registra un proveedor primero antes de realizar compras.');
       return;
@@ -104,7 +141,7 @@ export default function PurchasesModule({ products, providers, rates, onRecordPu
         productId: item.product.id,
         name: item.product.name,
         emoji: item.product.emoji,
-        quantity: item.quantity,
+        quantity: parseFloat(String(item.quantity)) || 0,
         costUsd: item.newCostUsd,
         unit: item.product.unit
       }));
@@ -245,15 +282,28 @@ export default function PurchasesModule({ products, providers, rates, onRecordPu
                     <div className="md:col-span-3 flex justify-center md:justify-start">
                       <div className="flex items-center bg-white border border-slate-200 rounded-lg px-1 py-0.5 w-fit">
                         <button
+                          type="button"
                           onClick={() => updateQuantity(item.product.id, -1)}
-                          className="p-1 hover:text-rose-500"
+                          className="p-1 hover:text-rose-500 shrink-0 cursor-pointer"
+                          title="Restar 1"
                         >
                           <Minus size={11} />
                         </button>
-                        <span className="px-2 text-xs font-extrabold text-slate-800">{item.quantity}</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={item.quantity}
+                          onChange={(e) => handleManualQuantityChange(item.product.id, e.target.value)}
+                          onBlur={(e) => handleManualQuantityBlur(item.product.id, e.target.value)}
+                          className="w-12 text-center text-xs font-extrabold text-slate-800 focus:outline-none bg-transparent"
+                          title="Escriba la cantidad exacta de abastecimiento"
+                          placeholder="0"
+                        />
                         <button
+                          type="button"
                           onClick={() => updateQuantity(item.product.id, 1)}
-                          className="p-1 hover:text-amber-500"
+                          className="p-1 hover:text-amber-500 shrink-0 cursor-pointer"
+                          title="Sumar 1"
                         >
                           <Plus size={11} />
                         </button>
@@ -274,7 +324,7 @@ export default function PurchasesModule({ products, providers, rates, onRecordPu
                         />
                       </div>
                       <span className="text-[10px] text-slate-400 font-bold font-mono">
-                        =${(item.newCostUsd * item.quantity).toFixed(2)}
+                        =${(item.newCostUsd * (parseFloat(String(item.quantity)) || 0)).toFixed(2)}
                       </span>
                       <button
                         onClick={() => setCart(cart.filter(i => i.product.id !== item.product.id))}

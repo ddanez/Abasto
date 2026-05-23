@@ -31,7 +31,7 @@ interface SalesModuleProps {
 
 export default function SalesModule({ products, customers, rates, onRecordSale }: SalesModuleProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
+  const [cart, setCart] = useState<{ product: Product; quantity: number | string }[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('casual');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'cxc' | 'transfer'>('cash');
   const [downpaymentUsd, setDownpaymentUsd] = useState<string>('0');
@@ -52,7 +52,10 @@ export default function SalesModule({ products, customers, rates, onRecordSale }
 
   // Compute Cart totals
   const totalUsd = useMemo(() => {
-    return cart.reduce((sum, item) => sum + (item.product.priceUsd * item.quantity), 0);
+    return cart.reduce((sum, item) => {
+      const qty = parseFloat(String(item.quantity)) || 0;
+      return sum + (item.product.priceUsd * qty);
+    }, 0);
   }, [cart]);
 
   const totalVes = totalUsd * rates.usdToVes;
@@ -85,12 +88,13 @@ export default function SalesModule({ products, customers, rates, onRecordSale }
   const addToCart = (product: Product) => {
     const existing = cart.find(item => item.product.id === product.id);
     if (existing) {
-      if (existing.quantity >= product.stock) {
+      const currentQty = parseFloat(String(existing.quantity)) || 0;
+      if (currentQty >= product.stock) {
         alert(`No hay suficiente stock. Solo queda un stock disponible de ${product.stock} ${product.unit} de ${product.name}.`);
         return;
       }
       setCart(cart.map(item =>
-        item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        item.product.id === product.id ? { ...item, quantity: Number((currentQty + 1).toFixed(3)) } : item
       ));
     } else {
       setCart([...cart, { product, quantity: 1 }]);
@@ -106,7 +110,8 @@ export default function SalesModule({ products, customers, rates, onRecordSale }
     const item = cart.find(i => i.product.id === productId);
     if (!item) return;
 
-    const newQty = item.quantity + val;
+    const currentQty = parseFloat(String(item.quantity)) || 0;
+    const newQty = Number((currentQty + val).toFixed(3));
     if (newQty <= 0) {
       removeFromCart(productId);
     } else {
@@ -120,6 +125,33 @@ export default function SalesModule({ products, customers, rates, onRecordSale }
     }
   };
 
+  const handleManualQuantityChange = (productId: string, valStr: string) => {
+    const cleanStr = valStr.replace(',', '.'); // Permitir comas
+    setCart(cart.map(i =>
+      i.product.id === productId ? { ...i, quantity: cleanStr } : i
+    ));
+    setSuccessReceipt(null);
+  };
+
+  const handleManualQuantityBlur = (productId: string, valStr: string) => {
+    const item = cart.find(i => i.product.id === productId);
+    if (!item) return;
+
+    let parsed = parseFloat(valStr) || 0;
+    if (parsed <= 0) {
+      removeFromCart(productId);
+    } else if (parsed > item.product.stock) {
+      alert(`La cantidad ingresada supera el stock disponible (${item.product.stock} ${item.product.unit}). Se ajustó al máximo disponible.`);
+      setCart(cart.map(i =>
+        i.product.id === productId ? { ...i, quantity: item.product.stock } : i
+      ));
+    } else {
+      setCart(cart.map(i =>
+        i.product.id === productId ? { ...i, quantity: Number(parsed.toFixed(3)) } : i
+      ));
+    }
+  };
+
   const handleClearCart = () => {
     setCart([]);
     setDownpaymentUsd('0');
@@ -129,6 +161,16 @@ export default function SalesModule({ products, customers, rates, onRecordSale }
   // Submit sale handler
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+    
+    // Validar cantidades inválidas antes de enviar
+    for (const item of cart) {
+      const qty = parseFloat(String(item.quantity)) || 0;
+      if (qty <= 0) {
+        setErrorMessage(`La cantidad para ${item.product.name} debe ser mayor a 0.`);
+        return;
+      }
+    }
+
     if (!creditValidation.valid) {
       setErrorMessage(creditValidation.error);
       return;
@@ -142,7 +184,7 @@ export default function SalesModule({ products, customers, rates, onRecordSale }
         productId: item.product.id,
         name: item.product.name,
         emoji: item.product.emoji,
-        quantity: item.quantity,
+        quantity: parseFloat(String(item.quantity)) || 0,
         priceUsd: item.product.priceUsd,
         unit: item.product.unit
       }));
@@ -345,24 +387,37 @@ export default function SalesModule({ products, customers, rates, onRecordSale }
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center bg-white border border-slate-200 rounded-xl px-1 py-0.5">
+                      <div className="flex items-center bg-white border border-slate-200 rounded-xl px-1 py-0.5 max-w-[125px]">
                         <button
+                          type="button"
                           onClick={() => updateQuantity(item.product.id, -1)}
-                          className="p-1 hover:text-rose-500"
+                          className="p-1 hover:text-rose-500 shrink-0 cursor-pointer"
+                          title="Restar 1"
                         >
                           <Minus size={11} />
                         </button>
-                        <span className="px-2 text-xs font-extrabold text-slate-800">{item.quantity}</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={item.quantity}
+                          onChange={(e) => handleManualQuantityChange(item.product.id, e.target.value)}
+                          onBlur={(e) => handleManualQuantityBlur(item.product.id, e.target.value)}
+                          className="w-12 text-center text-xs font-extrabold text-slate-800 focus:outline-none bg-transparent"
+                          title="Escriba la cantidad exacta (admite decimales)"
+                          placeholder="0"
+                        />
                         <button
+                          type="button"
                           onClick={() => updateQuantity(item.product.id, 1)}
-                          className="p-1 hover:text-emerald-500"
+                          className="p-1 hover:text-emerald-500 shrink-0 cursor-pointer"
+                          title="Sumar 1"
                         >
                           <Plus size={11} />
                         </button>
                       </div>
 
                       <span className="text-xs font-black text-slate-700 font-mono w-14 text-right">
-                        ${(item.product.priceUsd * item.quantity).toFixed(2)}
+                        ${(item.product.priceUsd * (parseFloat(String(item.quantity)) || 0)).toFixed(2)}
                       </span>
 
                       <button

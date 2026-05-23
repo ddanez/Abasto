@@ -418,6 +418,7 @@ export default function ProductsModule({ products, rates, onAddProduct, onUpdate
                   <label className="block text-slate-700 text-xs font-bold mb-1.5">Stock en Tienda *</label>
                   <input
                     type="number"
+                    step="any"
                     min="0"
                     required
                     value={stock}
@@ -431,6 +432,7 @@ export default function ProductsModule({ products, rates, onAddProduct, onUpdate
                   <label className="block text-slate-700 text-xs font-bold mb-1.5">Stock Mínimo de Alerta</label>
                   <input
                     type="number"
+                    step="any"
                     min="0"
                     value={minStock}
                     onChange={(e) => setMinStock(e.target.value)}
