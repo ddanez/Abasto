@@ -214,7 +214,11 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(custData)
       });
-      if (res.ok) await fetchDb();
+      if (res.ok) {
+        const data = await res.json();
+        await fetchDb();
+        return data;
+      }
     } catch (err) {
       console.error(err);
     }
@@ -240,7 +244,11 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pData)
       });
-      if (res.ok) await fetchDb();
+      if (res.ok) {
+        const data = await res.json();
+        await fetchDb();
+        return data;
+      }
     } catch (err) {
       console.error(err);
     }
@@ -512,6 +520,7 @@ export default function App() {
               customers={customers}
               rates={rates}
               onRecordSale={handleRecordSale}
+              onAddCustomer={handleAddCustomer}
             />
           )}
 
@@ -521,6 +530,7 @@ export default function App() {
               providers={providers}
               rates={rates}
               onRecordPurchase={handleRecordPurchase}
+              onAddProvider={handleAddProvider}
             />
           )}
 

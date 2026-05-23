@@ -27,9 +27,10 @@ interface SalesModuleProps {
     paymentMethod: 'cash' | 'cxc' | 'transfer';
     paidAmountUsd: number;
   }) => Promise<any>;
+  onAddCustomer?: (customerData: Omit<Customer, 'id'>) => Promise<any>;
 }
 
-export default function SalesModule({ products, customers, rates, onRecordSale }: SalesModuleProps) {
+export default function SalesModule({ products, customers, rates, onRecordSale, onAddCustomer }: SalesModuleProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<{ product: Product; quantity: number | string }[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('casual');
@@ -38,6 +39,52 @@ export default function SalesModule({ products, customers, rates, onRecordSale }
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successReceipt, setSuccessReceipt] = useState<Sale | null>(null);
+
+  // Quick Customer state variables
+  const [showQuickCustomerAdd, setShowQuickCustomerAdd] = useState(false);
+  const [quickCustName, setQuickCustName] = useState('');
+  const [quickCustPhone, setQuickCustPhone] = useState('');
+  const [quickCustDoc, setQuickCustDoc] = useState('');
+  const [quickCustEmail, setQuickCustEmail] = useState('');
+  const [quickCustLimit, setQuickCustLimit] = useState('200');
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+
+  const handleQuickAddCustomerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickCustName || !quickCustDoc) {
+      alert('El Nombre y Cédula/RIF del cliente son obligatorios.');
+      return;
+    }
+    setIsAddingCustomer(true);
+    try {
+      if (onAddCustomer) {
+        const newCust = await onAddCustomer({
+          name: quickCustName,
+          phone: quickCustPhone,
+          document: quickCustDoc,
+          email: quickCustEmail,
+          creditLimitUsd: parseFloat(quickCustLimit) || 0
+        });
+        if (newCust && newCust.id) {
+          setSelectedCustomerId(newCust.id);
+          setShowQuickCustomerAdd(false);
+          // Reset fields
+          setQuickCustName('');
+          setQuickCustPhone('');
+          setQuickCustDoc('');
+          setQuickCustEmail('');
+          setQuickCustLimit('200');
+        } else {
+          alert('No se pudo registrar el cliente. Intente nuevamente.');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al registrar el cliente.');
+    } finally {
+      setIsAddingCustomer(false);
+    }
+  };
 
   // Filter products for the quick shelf
   const filteredProducts = useMemo(() => {
@@ -444,28 +491,124 @@ export default function SalesModule({ products, customers, rates, onRecordSale }
               <div className="space-y-4 pt-3 border-t border-slate-100">
                 {/* 1. Client selector */}
                 <div className="grid grid-cols-1 gap-2">
-                  <label className="text-[10px] uppercase font-bold text-slate-400 block">Identificar Cliente</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-slate-400">
-                      <User size={13} />
-                    </span>
-                    <select
-                      value={selectedCustomerId}
-                      onChange={(e) => {
-                        setSelectedCustomerId(e.target.value);
-                        setDownpaymentUsd('0');
-                        setErrorMessage('');
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 pl-8 rounded-xl p-2.5 outline-none text-slate-800 text-xs font-bold focus:border-emerald-500 transition-all cursor-pointer"
-                    >
-                      <option value="casual">Cliente Casual / Contado General</option>
-                      {customers.filter(c => c.id !== 'casual').map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.document}) - Límite Cred: ${c.creditLimitUsd}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 block font-bold">Identificar Cliente</label>
+                    {onAddCustomer && (
+                      <button
+                        type="button"
+                        onClick={() => setShowQuickCustomerAdd(!showQuickCustomerAdd)}
+                        className="text-[10px] text-green-600 font-extrabold hover:text-green-700 hover:underline flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <Plus size={11} className="stroke-[3px]" /> {showQuickCustomerAdd ? "Cerrar" : "Crear Nuevo Cliente"}
+                      </button>
+                    )}
                   </div>
+
+                  {!showQuickCustomerAdd ? (
+                    <div className="relative">
+                      <span className="absolute left-3 top-3 text-slate-400">
+                        <User size={13} />
+                      </span>
+                      <select
+                        value={selectedCustomerId}
+                        onChange={(e) => {
+                          setSelectedCustomerId(e.target.value);
+                          setDownpaymentUsd('0');
+                          setErrorMessage('');
+                        }}
+                        className="w-full bg-slate-100/60 border border-slate-200 pl-8 rounded-xl p-2.5 outline-none text-slate-800 text-xs font-bold focus:border-emerald-500 transition-all cursor-pointer"
+                      >
+                        <option value="casual">Cliente Casual / Contado General</option>
+                        {customers.filter(c => c.id !== 'casual').map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.document}) - Límite Cred: ${c.creditLimitUsd}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3 animate-scale-up">
+                      <p className="text-[10px] uppercase font-bold text-slate-600 tracking-wider">⚡ Registro Rápido de Cliente</p>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] uppercase font-bold text-slate-400 block mb-1 font-bold">Nombre Completo *</label>
+                          <input
+                            type="text"
+                            placeholder="Ej. Juan Pérez"
+                            value={quickCustName}
+                            onChange={(e) => setQuickCustName(e.target.value)}
+                            className="bg-white border border-slate-200 rounded-lg p-2 w-full outline-none text-xs font-bold focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase font-bold text-slate-400 block mb-1 font-bold">Cédula / RIF *</label>
+                          <input
+                            type="text"
+                            placeholder="Ej. V-25444333"
+                            value={quickCustDoc}
+                            onChange={(e) => setQuickCustDoc(e.target.value)}
+                            className="bg-white border border-slate-200 rounded-lg p-2 w-full outline-none text-xs font-bold focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] uppercase font-bold text-slate-400 block mb-1 font-bold">Teléfono</label>
+                          <input
+                            type="text"
+                            placeholder="Ej. 0412-5556677"
+                            value={quickCustPhone}
+                            onChange={(e) => setQuickCustPhone(e.target.value)}
+                            className="bg-white border border-slate-200 rounded-lg p-2 w-full outline-none text-xs font-bold focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase font-bold text-slate-400 block mb-1 font-bold">Límite Crédito ($)</label>
+                          <input
+                            type="number"
+                            placeholder="Ej. 200"
+                            value={quickCustLimit}
+                            onChange={(e) => setQuickCustLimit(e.target.value)}
+                            className="bg-white border border-slate-200 rounded-lg p-2 w-full outline-none text-xs font-bold focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[9px] uppercase font-bold text-slate-400 block mb-1 font-bold">Correo Electrónico</label>
+                        <input
+                          type="email"
+                          placeholder="Ej. juan@correo.com"
+                          value={quickCustEmail}
+                          onChange={(e) => setQuickCustEmail(e.target.value)}
+                          className="bg-white border border-slate-200 rounded-lg p-2 w-full outline-none text-xs font-bold focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowQuickCustomerAdd(false);
+                            setErrorMessage('');
+                          }}
+                          className="px-2.5 py-1.5 bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg hover:bg-slate-300 transition cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isAddingCustomer}
+                          onClick={handleQuickAddCustomerSubmit}
+                          className="px-2.5 py-1.5 bg-green-600 text-white text-[10px] font-bold rounded-lg hover:bg-green-700 transition cursor-pointer"
+                        >
+                          {isAddingCustomer ? 'Guardando...' : 'Crear y Seleccionar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 2. Payment terms selector */}
