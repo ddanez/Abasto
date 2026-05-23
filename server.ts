@@ -829,7 +829,12 @@ app.post('/api/reset-db', (req, res) => {
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        watch: {
+          ignored: ['**/data/**']
+        }
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
